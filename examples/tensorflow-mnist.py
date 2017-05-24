@@ -6,7 +6,7 @@ import newt
 import newt.tensorflow as newtf
 
 # Pull the Model
-model_dir = newt.pull('LeNet')
+model_dir = newt.pull_model('lenet')
 
 # Load the Model - graph
 MyNet = newtf.import_graph(model_dir)
