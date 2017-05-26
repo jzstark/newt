@@ -44,4 +44,4 @@ def pull_model(model_name, model_dir='~/models'):
     #print(filepath)
     tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
-    return
+    return 

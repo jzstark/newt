@@ -2,11 +2,11 @@ import numpy as np
 import random
 import tensorflow as tf
 
-import newt
+import newt.model
 import newt.tensorflow as newtf
 
 # Pull the Model
-model_dir = newt.pull_model('lenet')
+model_dir = newt.model.pull_model('lenet')
 
 # Load the Model - graph
 MyNet = newtf.import_graph(model_dir)
