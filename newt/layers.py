@@ -84,9 +84,12 @@ class NodeDispatch(object):
         if len(node_kind) <= 4:
             # A catch-all for things like ReLU and tanh
             return node_kind.lower()
-        # Convert from CamelCase to under_scored
-        name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', node_kind)
-        return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+        def to_camel_case(varName):
+            var_Name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', varName)
+            var_name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', var_Name).lower()
+            return var_name
+        return to_camel_case(name)
 
     def get_handler(self, node_kind, prefix):
         name = self.get_handler_name(node_kind)
