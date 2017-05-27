@@ -7,21 +7,22 @@ from newt.layers import NodeKind
 #from ..transformers import (DataInjector, DataReshaper, NodeRenamer, ReLUFuser,
 #                            BatchNormScaleBiasFuser, BatchNormPreprocessor, ParameterNamer)
 
-from . import network
+# from . import network
+import network
 
 class TensorFlowTransformer(object):
 
-    def __init__(self, def_path, data_path, verbose=True, phase='test'):
+    def __init__(self, def_path, verbose=True, phase='test'):
         self.verbose = verbose
         self.phase = phase
-        self.load(def_path, data_path, phase)
+        self.load(def_path, phase)
         self.params = None
         self.source = None
 
-    def load(self, def_path, data_path, phase):
-        graph = GraphBuilder(def_path, phase).build()
+    def load(self, def_path, phase):
+        self.graph = GraphBuilder(def_path, phase).build()
         if self.verbose:
-            print_stderr(self.graph)
+            print '%s\n' % self.graph
 
     def transform_source(self):
         if self.source is None:
@@ -29,9 +30,75 @@ class TensorFlowTransformer(object):
             chains = mapper.map()
             emitter = TensorFlowEmitter()
             self.source = emitter.emit(self.graph.name, chains)
-        return mapper#self.source
+        return self.source
+
+def get_padding_type(kernel_params, input_shape, output_shape):
+    '''Translates Caffe's numeric padding to one of ('SAME', 'VALID').
+    Caffe supports arbitrary padding values, while TensorFlow only
+    supports 'SAME' and 'VALID' modes. So, not all Caffe paddings
+    can be translated to TensorFlow. There are some subtleties to
+    how the padding edge-cases are handled. These are described here:
+    https://github.com/Yangqing/caffe2/blob/master/caffe2/proto/caffe2_legacy.proto
+    '''
+    k_h, k_w, s_h, s_w, p_h, p_w = kernel_params
+    s_o_h = np.ceil(input_shape.height / float(s_h))
+    s_o_w = np.ceil(input_shape.width / float(s_w))
+    if (output_shape.height == s_o_h) and (output_shape.width == s_o_w):
+        return 'SAME'
+    v_o_h = np.ceil((input_shape.height - k_h + 1.0) / float(s_h))
+    v_o_w = np.ceil((input_shape.width - k_w + 1.0) / float(s_w))
+    if (output_shape.height == v_o_h) and (output_shape.width == v_o_w):
+        return 'VALID'
+    return None
+
+class MaybeActivated(object):
+
+    def __init__(self, node, default=True):
+        self.inject_kwargs = {}
+        if node.metadata.get('relu', False) != default:
+            self.inject_kwargs['relu'] = not default
+
+    def __call__(self, *args, **kwargs):
+        kwargs.update(self.inject_kwargs)
+        return TensorFlowNode(*args, **kwargs)
+
+class TensorFlowNode(object):
+    '''An intermediate representation for TensorFlow operations.'''
+
+    def __init__(self, op, *args, **kwargs):
+        # A string corresponding to the TensorFlow operation
+        self.op = op
+        # Positional arguments for the operation
+        self.args = args
+        # Keyword arguments for the operation
+        self.kwargs = list(kwargs.items())
+        # The source Caffe node
+        self.node = None
+
+    def format(self, arg):
+        '''Returns a string representation for the given value.'''
+        return "'%s'" % arg if isinstance(arg, basestring) else str(arg)
+
+    def pair(self, key, value):
+        '''Returns key=formatted(value).'''
+        return '%s=%s' % (key, self.format(value))
+
+    def emit(self):
+        '''Emits the Python source for this node.'''
+        # Format positional arguments
+        args = map(self.format, self.args)
+        # Format any keyword arguments
+        if self.kwargs:
+            args += [self.pair(k, v) for k, v in self.kwargs]
+        # Set the node name
+        args.append(self.pair('name', self.node.name))
+        args = ', '.join(args)
+        return '%s(%s)' % (self.op, args)
 
 class TensorFlowMapper(NodeMapper):
+    """
+    Map node to TF-related expression
+    """
 
     def get_kernel_params(self, node):
         kernel_params = node.layer.kernel_parameters
@@ -116,3 +183,58 @@ class TensorFlowMapper(NodeMapper):
 
     def commit(self, chains):
         return chains
+
+class TensorFlowEmitter(object):
+
+    def __init__(self, tab=None):
+        self.tab = tab or ' ' * 4
+        self.prefix = ''
+
+    def indent(self):
+        self.prefix += self.tab
+
+    def outdent(self):
+        self.prefix = self.prefix[:-len(self.tab)]
+
+    def statement(self, s):
+        return self.prefix + s + '\n'
+
+    def emit_imports(self):
+        return self.statement('from newt.tensorflow import Network\n')
+
+    def emit_class_def(self, name):
+        return self.statement('class %s(Network):' % (name))
+
+    def emit_setup_def(self):
+        return self.statement('def setup(self):')
+
+    def emit_parents(self, chain):
+        assert len(chain)
+        s = '(self.feed('
+        sep = ', \n' + self.prefix + (' ' * len(s))
+        s += sep.join(["'%s'" % parent.name for parent in chain[0].node.parents])
+        return self.statement(s + ')')
+
+    def emit_node(self, node):
+        return self.statement(' ' * 5 + '.' + node.emit())
+
+    def emit(self, name, chains):
+        s = self.emit_imports()
+        s += self.emit_class_def(name)
+        self.indent()
+        s += self.emit_setup_def()
+        self.indent()
+        blocks = []
+        for chain in chains:
+            b = ''
+            b += self.emit_parents(chain)
+            for node in chain:
+                b += self.emit_node(node)
+            blocks.append(b[:-1] + ')')
+        s = s + '\n\n'.join(blocks)
+        return s
+
+
+
+def_path = '/home/stark/models/lenet/lenet.prototxt'
+foo = TensorFlowTransformer(def_path)
