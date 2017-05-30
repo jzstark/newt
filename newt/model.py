@@ -7,7 +7,7 @@ import tarfile
 from six.moves import urllib
 
 # Should be put into a config file
-supported_model = ['lenet']
+supported_model = ['lenet', 'googlenet']
 server = '207.154.194.38'
 model_suffix = ['tgz', 'pbtxt', 'npy'] # should consider multiple suffixes
 
