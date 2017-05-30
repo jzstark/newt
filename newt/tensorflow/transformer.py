@@ -236,5 +236,5 @@ class TensorFlowEmitter(object):
 
 
 
-def_path = '/home/stark/models/lenet/lenet.prototxt'
-foo = TensorFlowTransformer(def_path)
+#def_path = '/home/stark/models/lenet/lenet.prototxt'
+#foo = TensorFlowTransformer(def_path)

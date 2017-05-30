@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 from google.protobuf import text_format
 from graphdef import get_proto_resolver # relative import?
 from layers import LayerAdapter, LayerType, NodeKind, NodeDispatch
