@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 
 setup(name='Newt',
-      version='0.0.1',
+      version='0.0.2',
       description='Deep Learning for Python',
       author='Roger Stark',
       author_email='rho.ajax@gmail.com',

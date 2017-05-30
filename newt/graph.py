@@ -1,9 +1,9 @@
 from __future__ import absolute_import
 
 from google.protobuf import text_format
-from graphdef import get_proto_resolver # relative import?
-from layers import LayerAdapter, LayerType, NodeKind, NodeDispatch
-from shapes import TensorShape
+from .graphdef import get_proto_resolver # relative import?
+from .layers import LayerAdapter, LayerType, NodeKind, NodeDispatch
+from .shapes import TensorShape
 
 class GraphBuilder(object):
     '''Constructs a model graph from a Caffe protocol buffer definition.'''
@@ -265,5 +265,5 @@ class NodeMapper(NodeDispatch):
 
 
 #test
-path = '/home/stark/models/lenet/lenet.prototxt'
-foo = GraphBuilder(path)
+#path = '/home/stark/models/lenet/lenet.prototxt'
+#foo = GraphBuilder(path)

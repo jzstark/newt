@@ -1,5 +1,5 @@
-from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import print_function
 
 import os
 import sys
@@ -45,4 +45,4 @@ def pull_model(model_name, model_dir='~/models'):
     #print(filepath)
     tarfile.open(filepath, 'r:gz').extractall(dest_directory)
 
-    return os.path.join(dest_directory, model_name)
+    return os.path.join(dest_directory, model_name, model_name)

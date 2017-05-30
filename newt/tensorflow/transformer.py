@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 #from ..graph import GraphBuilder, NodeMapper
 #from ..layers import NodeKind
@@ -31,6 +32,12 @@ class TensorFlowTransformer(object):
             emitter = TensorFlowEmitter()
             self.source = emitter.emit(self.graph.name, chains)
         return self.source
+
+    def code_to_file(self, path='.'):
+        path = os.path.expanduser(path)
+        code_output_path = os.path.join(path, self.graph.name + '.py')
+        with open(code_output_path, 'wb') as src_out:
+            src_out.write(self.transform_source()) # Not efficient to generate code every time
 
 def get_padding_type(kernel_params, input_shape, output_shape):
     '''Translates Caffe's numeric padding to one of ('SAME', 'VALID').

@@ -1,15 +1,43 @@
 import numpy as np
 import random
 import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+import importlib
 
 import newt.model
 import newt.tensorflow as newtf
+
+# TF helper functions
+def gen_data(source):
+    while True:
+        indices = range(len(source.images))
+        random.shuffle(indices)
+        for i in indices:
+            image = np.reshape(source.images[i], (28, 28, 1))
+            label = source.labels[i]
+            yield image, label
+
+def gen_data_batch(source):
+    data_gen = gen_data(source)
+    while True:
+        image_batch = []
+        label_batch = []
+        for _ in range(batch_size):
+            image, label = next(data_gen)
+            image_batch.append(image)
+            label_batch.append(label)
+        yield np.array(image_batch), np.array(label_batch)
 
 # Pull the Model
 model_dir = newt.model.pull_model('lenet')
 
 # Load the Model - graph
-MyNet = newtf.import_graph(model_dir)
+class_name = newtf.import_graph(model_dir)
+if class_name is not None:
+    try:
+        mynet = importlib.import_module(class_name)
+    except:
+        raise ValueError("Class file %s does not exist!" % class_name + '.py')
 
 # Visulize the model in TF: how?
 # ????
@@ -20,7 +48,7 @@ batch_size = 32
 images = tf.placeholder(tf.float32, [batch_size, 28, 28, 1])
 labels = tf.placeholder(tf.float32, [batch_size, 10])
 
-net = MyNet({'data': images})
+net = mynet.LeNet({'data': images})
 
 ip2 = net.layers['ip2'] # Depend of programmer's knowledge to manipulate layers
 pred = tf.nn.softmax(ip2)
@@ -29,10 +57,10 @@ opt = tf.train.RMSPropOptimizer(0.001)
 train_op = opt.minimize(loss)
 
 with tf.Session() as sess:
-    sess.run(tf.initialize_all_variables())
+    sess.run(tf.global_variables_initializer())
 
     # Load the Model - Weights
-    net.load(model_dir, sess) # .npy data
+    #net.load(model_dir, sess) # .npy data
     newtf.import_weight(model_dir, net, sess)
 
     data_gen = gen_data_batch(mnist.train)
