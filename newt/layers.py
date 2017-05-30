@@ -89,7 +89,7 @@ class NodeDispatch(object):
             var_Name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', varName)
             var_name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', var_Name).lower()
             return var_name
-        return to_camel_case(name)
+        return to_camel_case(node_kind)
 
     def get_handler(self, node_kind, prefix):
         name = self.get_handler_name(node_kind)

@@ -265,5 +265,5 @@ class NodeMapper(NodeDispatch):
 
 
 #test
-#path = '/home/stark/models/lenet/lenet.prototxt'
-#foo = GraphBuilder(path).build()
+path = '/home/stark/models/lenet/lenet.prototxt'
+foo = GraphBuilder(path)
