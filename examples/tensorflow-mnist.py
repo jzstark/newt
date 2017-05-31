@@ -32,7 +32,8 @@ def gen_data_batch(source):
 model_dir = newt.model.pull_model('lenet')
 
 # Load the Model - graph
-class_name = newtf.import_graph(model_dir)
+class_path = newtf.import_graph(model_dir)
+
 if class_name is not None:
     try:
         mynet = importlib.import_module(class_name)

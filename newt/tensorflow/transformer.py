@@ -38,6 +38,7 @@ class TensorFlowTransformer(object):
         code_output_path = os.path.join(path, self.graph.name + '.py')
         with open(code_output_path, 'wb') as src_out:
             src_out.write(self.transform_source()) # Not efficient to generate code every time
+        return code_output_path
 
 def get_padding_type(kernel_params, input_shape, output_shape):
     '''Translates Caffe's numeric padding to one of ('SAME', 'VALID').
