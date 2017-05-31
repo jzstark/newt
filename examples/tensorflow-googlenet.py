@@ -18,8 +18,7 @@ channels = 3
 
 model_dir = newt.model.pull_model('googlenet')
 class_path, class_name = newtf.import_graph(model_dir)
-#mynet = importlib.import_module(class_name)
-mynet = importlib.import_module('mynet')
+mynet = importlib.import_module(class_name)
 
 input_node = tf.placeholder(tf.float32,
     shape=(None, crop_size, crop_size, channels))
@@ -50,6 +49,9 @@ with tf.Session() as sess:
     #predictions = sess.run(softmax_tensor,
     #                       {'DecodeJpeg/contents:0': image_data})
     #predictions = np.squeeze(predictions)
+
+    softmax_tensor = net.get_output() # net.layers['loss3_loss3']
+    pred = sess.run(softmax_tensor, feed_dict={input_node: image_data})
 
 #image = '~/Downloads/panda.jpg'
 #run_inference_on_image(image)

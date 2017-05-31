@@ -8,6 +8,7 @@ from newt.layers import NodeKind
 #from ..transformers import (DataInjector, DataReshaper, NodeRenamer, ReLUFuser,
 #                            BatchNormScaleBiasFuser, BatchNormPreprocessor, ParameterNamer)
 
+from ..transformers import NodeRenamer
 # from . import network
 import network
 
@@ -22,6 +23,16 @@ class TensorFlowTransformer(object):
 
     def load(self, def_path, phase):
         self.graph = GraphBuilder(def_path, phase).build()
+
+        transformers = [
+            # Rename nodes
+            # Slashes are used for scoping in TensorFlow. Replace slashes
+            # in node names with underscores.
+            # (Caffe's GoogLeNet implementation uses slashes)
+            NodeRenamer(lambda node: node.name.replace('/', '_'))
+        ]
+        self.graph = self.graph.transformed(transformers)
+
         if self.verbose:
             print '%s\n' % self.graph
 
