@@ -1,1 +1,2 @@
 - LeNet
+- GoogleNet

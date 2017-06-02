@@ -69,7 +69,8 @@ with tf.Session() as sess:
 
     # op = sess.graph.get_operations()
     softmax_tensor = net.get_output() # net.layers['loss3_loss3']
-    predictions = sess.run(softmax_tensor, feed_dict={input_node: image_data})
+    #predictions = sess.run(softmax_tensor, feed_dict={input_node: image_data})
+
     #predictions = sess.run(softmax_tensor,
     #                       {'DecodeJpeg/contents:0': image_data})
     #predictions = np.squeeze(predictions)
