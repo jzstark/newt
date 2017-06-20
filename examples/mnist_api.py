@@ -7,7 +7,7 @@ import newt
 Load NN model and weights
 '''
 newt.pull_model('LeNet', '.')
-model = newt.Model('model.json')
+model = newt.Graph('model.json')
 model.load_weights('weight.bin')
 
 '''
