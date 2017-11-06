@@ -1,0 +1,20 @@
+{
+    "name": "incpetionv3",
+    "version": "2.0",
+    "gist_id": "9428a62a31dbea75511882ab8218076f",
+    "help": "InceptoinV3 network module",
+    "services": [
+        {
+            "name" :  "model",
+            "input":  {"typ": "Dense.Ndarray.S.arr", "shape": [299, 299, 3]},
+            "output": {"typ": "Dense.Ndarray.S.arr", "shape": [1, 1000]},
+            "weight": "https://drive.google.com/somewhere/inception_owl.network"
+        },
+
+        {
+            "name": "decode",
+            "input":  {"typ": "Dense.Ndarray.S.arr", "shape": [1, 1000]},
+            "output": {"typ": "(string * float) array" }
+        }
+    ]
+}

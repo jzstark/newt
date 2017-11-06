@@ -1,0 +1,21 @@
+type service = {
+  name : string;
+  gist_id : string;
+  version : string;
+  services : func list;
+}
+
+type func = {
+  name : string;
+  input : ioformat;
+  output : ioformat;
+}
+
+type ioformat = {
+  typ     : string;  (* "int", "Dense.Ndarray.S.arr", etc. *)
+  ?shape  : int list option;
+  (* ?fmt    : data_format option; *)
+  ?weight : string option;
+}
+
+(* type data_format = [ Image | Text | Voice | None ] *)
