@@ -4,43 +4,44 @@
 
 (* definition of a service *)
 
-type s = I of int | F of float
+type t =
+ | I of int
+ | F of float
+ | S of string
+ | Arr of Owl_dense_ndarray.arr
 
-type ioformat = {
-  mutable typ    : string;  (* "int", "Dense.Ndarray.S.arr", etc. *)
-  mutable shape  : int list option;
-  (* ?fmt    : data_format option; *)
-  (* mutable dformat: data_format; *)
-  mutable weight : string option;
-}
+type s = IMAGE | TEXT | AUDIO | VIDEO
 
 type proc = {
   mutable name   : string;
-  mutable input  : ioformat;
-  mutable output : ioformat;
-  mutable func   : s -> s;
+  mutable input  : t;
+  mutable output : t;
+  mutable func   : t -> t;
+}
+and service = { (*no, service should be a module...? *)
+  mutable name : string;
+  mutable gid : string;
+  mutable ver : string;
+  mutable typ : s;
+  mutable entry : string option;
+  mutable services : proc array;
 }
 
-type service = {
-  mutable name    : string;
-  mutable gist_id : string;
-  mutable version : string;
-  mutable services : proc list;
-}
+(* DAG *)
 
-
-
-(*
-type data_format =
-  | Image
-  | Text
-  | Voice
-  | None
-*)
-
+type dag
 
 (* functions to manipulate the service *)
 
+(* load service from gist config file *)
+val load  : string -> service (* deployer or here? *)
+
+val load2 : string -> (service array * dag)
+
+(* execute service *)
+val run : service -> t
+
+(*
 let check m1 m2 =
   if (m1.output = m2.input) then true else false
 
@@ -68,13 +69,4 @@ let connect m1 m2 =
   let ss = [{"main", m1.input, m2.output, new_func}] in
   s3.services <- ss;
   s3
-
-let unpack_int x =
-  match x with
-  | I a -> a
-  | _ -> failwith "not a supported type"
-
-let unpack_int x =
-  match x with
-  | F a -> a
-  | _ -> failwith "not a supported type"
+  *)
