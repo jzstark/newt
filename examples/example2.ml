@@ -5,7 +5,7 @@ open Newt
 
 let _ =
 (* existing services *)
-let serv_plus_one = Newt.Service.load "s1.json" in
+let serv_plus_one = Newt.Service.load_atom "s1.json" in
 let test_output   = Newt.Service.run serv_plus_two (I 1) in
 
 (* two DAG design *)
