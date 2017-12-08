@@ -3,29 +3,61 @@
  * Copyright (c) 2016-2017 Liang Wang <liang.wang@cl.cam.ac.uk>
  *)
 
+open Yojson
 
-let dir = Sys.getenv "HOME" ^ "/.owl/zoo/"  
+let dir = Sys.getenv "HOME" ^ "/.owl/zoo/"
 let log = dir ^ "/log.json"
 
-let _parse_gist_string gist = 
-  let gid = "12345abcde"  in
-  let vid = "1" in 
-  let vid = if not vid then find_latest_version gid in 
-  gid, vid
-    
+let _parse_gist_string gist =
+  let strip_string s =
+    Str.global_replace (Str.regexp "[\r\n\t ]") "" s
+  in
+  let regex = Str.regexp "|" in
+  let lst = Str.split_delim regex gist in
+  List.map strip_string lst;
+  lst.(0), (* gid *)
+  if (List.length = 1) then find_latest_vid lst.(0) else lst.(1) (* vid *)
+
+let find_latest_vid gid =
+  let jslog = Yojson.Basic.from_file log in
+  Yojson.Basic.Util.(filter_member gid [jslog]
+    |> filter_member "latest" |> filter_string)
+    |> List.hd (* latest version id *)
+
+let create_log () =
+  let empty_list = `List [`Null] in
+  Yojson.to_file log empty_list
+
 let check_log gid vid =
-  if Sys.file_exist log then Sys.create log;
-  let jslog = Yojson log;
-  Yojson.find jslog gid vid
+  if Sys.file_exists log then create_log ();
+  let jslog = Yojson.Basic.from_file log in
+  let versions = Yojson.Basic.Util.(filter_member gid [jslog]
+    |> filter_member "versions" |> filter_list)
+    |> List.hd  in
+  List.mem vid versions
 
-let add_log gid vid = 
-  if Sys.file_exist log then Sys.create log;
-  let jslog = Yojson log;
-  Yojson.add jslog gid vid
+let update_log ?(update=false) gid vid = (* consider update *)
+  if Sys.file_exists log then create_log ();
+  let jslog = Yojson.Basic.from_file log in
+  let jslog' = Yojson.Basic.Util.to_assoc jslog in
+  let _new_version record =
+    let key, assoc = record in
+    if not (gid = key) then record else
+    let ver = Yojson.Basic.Util.to_assoc assoc in
+    let _, versions = List.hd  ver in
+    let _, tag      = List.nth ver 1 in
+    let tag = if update then (`String vid) else tag in
+    let versions = Yojson.Basic.Util.to_list versions in
+    if List.mem (`String vid) versions then record else
+    let new_versions = List.append versions [`String vid] in
+    key, (`Assoc [("versions", `List new_versions); ("latest", tag)])
+  in
+  let updated = List.map _new_version jslog' in
+  Yojson.Basic.to_file log (`Assoc updated)
 
-let rec _extract_zoo_gist f added = (* Most of this part goes to parser *)
+let rec _extract_zoo_gist f added =
   let s = Owl.Utils.read_file_string f in
-  let regex = Str.regexp "^#zoo \"\\([0-9A-Za-z]+\\)\"" in
+  let regex = Str.regexp "^#zoo \"\\([0-9A-Za-z]|+\\)\"" in
   try
     let pos = ref 0 in
     while true do
@@ -39,12 +71,12 @@ let rec _extract_zoo_gist f added = (* Most of this part goes to parser *)
 
 and _deploy_gist gid vid =
   if (check_log gid vid) = true then (
-    Log.info "owl_zoo: %s cached" gist
+    Log.info "owl_zoo: %s | %s cached" gid vid
   )
   else (
     make_log gid vid;
-    Log.info "owl_zoo: %s missing" gist;
-    Owl_zoo_cmd.download_gist gist (* download to correct subdirectory *)
+    Log.info "owl_zoo: %s | %s missing" gid vid;
+    Owl_zoo_cmd.download_gist git vid (* download to correct subdirectory *)
   )
 
 and _dir_zoo_ocaml gid vid added = (* final step: load *)
@@ -64,9 +96,9 @@ and process_dir_zoo ?added gist =
     | Some h -> h
     | None   -> Hashtbl.create 128
   in
-  let gid, vid = _parse_gist_string gist in (* change the hashtbl structure *)
-  if Hashtbl.mem added gid vid = false then (
-    Hashtbl.add added gist gist ; (*?*)
+  if Hashtbl.mem added gid vid = false then ( (*keep structure for now *)
+    let gid, vid = _parse_gist_string gist in
+    Hashtbl.add added gist gist;
     _deploy_gist gid vid;
     _dir_zoo_ocaml gid vid added
   )
