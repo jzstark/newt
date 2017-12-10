@@ -6,56 +6,73 @@
 open Yojson
 
 let dir = Sys.getenv "HOME" ^ "/.owl/zoo/"
-let log = dir ^ "/log.json"
+let log = dir ^ "log.json"
 
-let _parse_gist_string gist =
+let _create_log () =
+  (* Ignore existing files from previous Zoo version *)
+  let empty_list = `List [`Null] in
+  Yojson.to_file log empty_list
+
+and _find_latest_vid gid =
+  if not (Sys.file_exists log) then _create_log ();
+  let jslog = Yojson.Basic.from_file log in
+  let versions = Yojson.Basic.Util.(filter_member gid [jslog]
+    |> filter_member "latest" |> filter_string)
+  in
+  match versions with
+  | []   -> ""
+  | h::_ -> h
+
+and _check_log gid vid =
+  if not (Sys.file_exists log) then _create_log ();
+  let jslog = Yojson.Basic.from_file log in
+  let versions = Yojson.Basic.Util.(filter_member gid [jslog]
+    |> filter_member "versions" |> filter_list) in
+  match versions with
+  | h::t -> List.mem (`String vid) h
+  | []   -> false
+
+and _update_log ?(latest=false) gid vid =
+  if (_check_log gid vid = false) then (
+    let jslog = Yojson.Basic.from_file log in
+    let jslog' = Yojson.Basic.Util.to_assoc jslog in
+    let new_item = (gid, `Assoc [("versions", `List [`String vid]);
+      ("latest",  `String vid)]) in
+    let updated = List.append jslog' [new_item] in
+    Yojson.Basic.to_file log (`Assoc updated)
+  ) else (
+    let jslog = Yojson.Basic.from_file log in
+    let jslog' = Yojson.Basic.Util.to_assoc jslog in
+    let update record =
+      let key, assoc = record in
+      if not (gid = key) then record else
+      let ver = Yojson.Basic.Util.to_assoc assoc in
+      let _, versions = List.hd  ver in
+      let _, tag      = List.nth ver 1 in
+      let tag = if latest then (`String vid) else tag in
+      let versions = Yojson.Basic.Util.to_list versions in
+      let new_versions =
+        if (List.mem (`String vid) versions) then versions
+        else List.append versions [`String vid]
+      in
+      key, (`Assoc [("versions", `List new_versions); ("latest", tag)])
+    in
+    let updated = List.map update jslog' in
+    Yojson.Basic.to_file log (`Assoc updated)
+  )
+
+and _parse_gist_string gist =
   let strip_string s =
     Str.global_replace (Str.regexp "[\r\n\t ]") "" s
   in
   let regex = Str.regexp "|" in
   let lst = Str.split_delim regex gist in
-  List.map strip_string lst;
-  lst.(0), (* gid *)
-  if (List.length = 1) then find_latest_vid lst.(0) else lst.(1) (* vid *)
+  let lst = List.map strip_string lst in
+  let vid = List.nth lst 1 in
+  List.hd lst,
+  if (vid = "") then _find_latest_vid gid else vid
 
-let find_latest_vid gid =
-  let jslog = Yojson.Basic.from_file log in
-  Yojson.Basic.Util.(filter_member gid [jslog]
-    |> filter_member "latest" |> filter_string)
-    |> List.hd (* latest version id *)
-
-let create_log () =
-  let empty_list = `List [`Null] in
-  Yojson.to_file log empty_list
-
-let check_log gid vid =
-  if Sys.file_exists log then create_log ();
-  let jslog = Yojson.Basic.from_file log in
-  let versions = Yojson.Basic.Util.(filter_member gid [jslog]
-    |> filter_member "versions" |> filter_list)
-    |> List.hd  in
-  List.mem vid versions
-
-let update_log ?(update=false) gid vid = (* consider update *)
-  if Sys.file_exists log then create_log ();
-  let jslog = Yojson.Basic.from_file log in
-  let jslog' = Yojson.Basic.Util.to_assoc jslog in
-  let _new_version record =
-    let key, assoc = record in
-    if not (gid = key) then record else
-    let ver = Yojson.Basic.Util.to_assoc assoc in
-    let _, versions = List.hd  ver in
-    let _, tag      = List.nth ver 1 in
-    let tag = if update then (`String vid) else tag in
-    let versions = Yojson.Basic.Util.to_list versions in
-    if List.mem (`String vid) versions then record else
-    let new_versions = List.append versions [`String vid] in
-    key, (`Assoc [("versions", `List new_versions); ("latest", tag)])
-  in
-  let updated = List.map _new_version jslog' in
-  Yojson.Basic.to_file log (`Assoc updated)
-
-let rec _extract_zoo_gist f added =
+and rec _extract_zoo_gist f added =
   let s = Owl.Utils.read_file_string f in
   let regex = Str.regexp "^#zoo \"\\([0-9A-Za-z]|+\\)\"" in
   try
@@ -68,24 +85,23 @@ let rec _extract_zoo_gist f added =
     done
   with Not_found -> ()
 
-
 and _deploy_gist gid vid =
-  if (check_log gid vid) = true then (
+  if (_check_log gid vid) = true then (
     Log.info "owl_zoo: %s | %s cached" gid vid
   )
   else (
-    make_log gid vid;
+    _update_log gid vid;
     Log.info "owl_zoo: %s | %s missing" gid vid;
-    Owl_zoo_cmd.download_gist git vid (* download to correct subdirectory *)
+    Owl_zoo_cmd.download_gist gid vid
   )
 
 and _dir_zoo_ocaml gid vid added = (* final step: load *)
-  let dir_gist = dir ^ gist ^ "/" ^ vid in
+  let dir_gist = dir ^ gid ^ "/" ^ vid in
   Sys.readdir (dir_gist)
   |> Array.to_list
   |> List.filter (fun s -> Filename.check_suffix s "ml")
   |> List.iter (fun l ->
-          let f = Printf.sprintf "%s/%s" dir_gist l in
+      let f = Printf.sprintf "%s/%s" dir_gist l in
       _extract_zoo_gist f added;
       Toploop.mod_use_file Format.std_formatter f
       |> ignore
@@ -96,9 +112,14 @@ and process_dir_zoo ?added gist =
     | Some h -> h
     | None   -> Hashtbl.create 128
   in
-  if Hashtbl.mem added gid vid = false then ( (*keep structure for now *)
-    let gid, vid = _parse_gist_string gist in
-    Hashtbl.add added gist gist;
+  let gid, vid = _parse_gist_string gist in
+  if (Hashtbl.mem added gid = false) then (
+    Hashtbl.add added gid []
+  );
+  let vids = Hashtbl.find added gid in
+  if not (List.mem vid vids) then (
+    let new_vids = List.append vids [vid] in
+    Hashtbl.add added gid new_vids;
     _deploy_gist gid vid;
     _dir_zoo_ocaml gid vid added
   )

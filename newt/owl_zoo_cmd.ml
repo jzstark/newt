@@ -41,9 +41,9 @@ let upload_gist gist =
   Sys.command cmd |> ignore
 
 
-let download_gist gist =
-  Log.debug "owl_zoo: %s downloading" gist;
-  let cmd = Printf.sprintf "owl_download_gist.sh %s" gist in
+let download_gist gid vid =
+  Log.debug "owl_zoo: %s (ver. %s) downloading" gid vid;
+  let cmd = Printf.sprintf "owl_download_gist.sh %s (ver. %s)" gid vid in
   Sys.command cmd |> ignore
 
 
