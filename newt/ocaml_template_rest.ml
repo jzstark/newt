@@ -1,73 +1,33 @@
-open Lwt.Infix
-open Cohttp_lwt
+(*
+  #require "lwt";
+  #require "cohttp.lwt"
+  #require "cohttp-lwt-unix"
+*)
+
+open Lwt
+open Cohttp
 open Cohttp_lwt_unix
-open Cohttp_lwt_unix_io
 
-open Splus (* user provide *)
+let port = 8888 (* Sys.argv.(1) -- how to pass parameter to this script? *)
 
-let filename   = Sys.argv.(1)
-let entry_func = Sys.argv.(2)
+(* Do I have to compile? *)
+Toploop.mod_use_file Format.std_formatter "splus.ml" |> ignore;
 
-module Wm = struct
-  module Rd = Webmachine.Rd
-  include Webmachine.Make(Cohttp_lwt_unix_io)
-end
-
-(* May need to seperate this part out *)
-class service = object(self)
-  inherit [Cohttp_lwt_body.t] Wm.resource
-
-  method allowed_methods rd =
-    Wm.continue [`GET] rd
-
-  method content_types_provided rd =
-    Wm.continue [
-      ("application/*", self#predict); (*user provide*)
-    ] rd
-
-  method content_types_accepted rd =
-    Wm.continue [] rd
-
-  method private predict rd =
-    let json =
-      (* user provide: type, name of file and function*)
-      Printf.sprintf "{\"data\" : \"%s\"}" (Splus.plus rd) 
-    in
-    Wm.continue (`String json) rd
-end
-
-let main () =
-  (* user provide: port *)
-  let port = 8080 in
-  let routes = [
-    ("/predict", fun () -> new hello);
-  ] in
-  let callback (ch, conn) request body =
-    let open Cohttp in
-    Wm.dispatch' routes ~body ~request
-    >|= begin function
-      | Some result -> result
-      | None        -> (`Not_found, Header.init (), `String "Not found", [])
-    end
-    >>= fun (status, headers, body, path) ->
-      let path =
-        match Sys.getenv "DEBUG_PATH" with
-        | _ -> Printf.sprintf " - %s" (String.concat ", " path)
-        | exception Not_found   -> ""
+let callback _conn req body =
+  let uri = Cohttp.Request.uri req in
+  match Uri.path uri with
+    | "/predict" ->
+      let param = Uri.get_query_param uri "data" in (* multiple data? think about an "int + int" service *)
+      let param = match param with
+        | Some x -> x
+        | _      -> "No param supplied"
       in
-      Printf.eprintf "%d - %s %s%s"
-        (Code.code_of_status status)
-        (Code.string_of_method (Request.meth request))
-        (Uri.path (Request.uri request))
-        path;
-      Server.respond ~headers ~body ~status ()
-  in
-  let conn_closed (ch,conn) =
-    Printf.printf "connection %s closed\n%!"
-      (Sexplib.Sexp.to_string_hum (Conduit_lwt_unix.sexp_of_flow ch))
-  in
-  let config = Server.make ~callback ~conn_closed () in
-  Server.create  ~mode:(`TCP(`Port port)) config >|= fun () ->
-    Printf.eprintf "hello_lwt: listening on 0.0.0.0:%d%!" port
+      let resp  = Splus.plus param |> string_of_int in (*fun_name to fun; string_of_*? multiple output *)
+      Server.respond_string ~status:`OK ~body:resp ()
+    | _ ->
+      Server.respond_string ~status:`Not_found ~body:"Route not found" ()
 
-let () =  Lwt_main.run (main ())
+let server =
+  Server.create ~mode:(`TCP (`Port port)) (Server.make ~callback ())
+
+let () = ignore (Lwt_main.run server)
