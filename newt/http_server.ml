@@ -2,15 +2,23 @@
 
 (* #require netcgi2 and nethttpd *)
 
+open Nethttpd_types
+open Nethttpd_services
+open Nethttpd_engine
 open Printf
 
-let generate (cgi : Netcgi.cgi_activation) =
+let resource = Hashtbl.create 2 (* string ("GET" or "POST"), (string, function) *)
+
+let fn_handler fn env (cgi : Netcgi.cgi_activation) =
   (* A Netcgi-based content provider *)
   cgi # set_header
     ~cache:`No_cache
     ~content_type:"text/html; charset=\"iso-8859-1\""
     ();
-  let data =
+  let input  = cgi # argument_value "data" in 
+  let result = fn input in
+  let data = result in 
+    (*
     "<html>\n" ^
     "  <head><title>Easy Engine</title></head>\n" ^
     "  <body>\n" ^
@@ -21,56 +29,60 @@ let generate (cgi : Netcgi.cgi_activation) =
     "    </form>\n" ^
     "  </body>\n" ^
     "</html>" in
+  *)
   cgi # output # output_string data;
   cgi # output # commit_work();
 ;;
 
-let on_request notification =
-  (* This function is called when the full HTTP request has been received. For
-   * simplicity, we create a [std_activation] to serve the request.
-   *
-   * An advanced implementation could set up further notifications to get informed
-   * whenever there is space in the response buffer for additional output.
-   * Currently, data is fully buffered (first
-   * in the transactional buffer, then in the response buffer), and only when
-   * the message is complete, the transmission to the client starts. 
-   * By generating only the next part of the response when there is space in
-   * the response buffer, the advanced implementation can prevent that the
-   * buffers become large.
-   *)
-  printf "Received HTTP request\n";
-  flush stdout;
-  ( try
-      let env = notification # environment in
-      let cgi =
-	Netcgi_common.cgi_with_args 
-	  (new Netcgi_common.cgi)
-	  (env :> Netcgi.cgi_environment)
-	  Netcgi.buffered_transactional_outtype
-	  env#input_channel
-	  (fun _ _ _ -> `Automatic) in
-      generate cgi;
-    with
-	e ->
-	  printf "Uncaught exception: %s\n" (Printexc.to_string e);
-          flush stdout
-  );
-  notification # schedule_finish()
+(*
+let srv =
+  host_distributor
+    [ default_host ~pref_name:"localhost" ~pref_port:8765 (),
+      uri_distributor [ 
+        "*", (options_service());
+        "/plus", (
+          dynamic_service { 
+            dyn_handler = fn_handler (fun x -> x ^ " fuck!\n") ;
+            dyn_activation = std_activation `Std_activation_buffered;
+            dyn_uri = Some "/plus";
+            dyn_translator = (fun _ -> "");
+            dyn_accept_all_conditionals = false
+         })
+      ]
+    ]
 ;;
+*)
 
-let on_request_header (notification : Nethttpd_engine.http_request_header_notification) =
-  (* After receiving the HTTP header: We always decide to accept the HTTP body, if any
-   * is following. We do not set up special processing of this body, it is just
-   * buffered until complete. Then [on_request] will be called.
-   *
-   * An advanced server could set up a further notification for the HTTP body. This
-   * additional function would be called whenever new body data arrives. (Do so by
-   * calling [notification # environment # input_ch_async # request_notification].)
-   *)
-  printf "Received HTTP header\n";
-  flush stdout;
-  notification # schedule_accept_body ~on_request ()
-;;
+(* problems of general function type? *)
+let add_endpoint res_name res_method res_fn = 
+  let res_get = Hashtbl.find resource res_method in
+  if not (Hashtbl.mem res_get res_name) then (
+    Hashtbl.add res_get res_name res_fn;
+    Hashtbl.replace resource res_method res_get;
+  )
+
+let delete_endpoint res_name res_method res_fn = None
+
+let generate_srv () = 
+  (* ip and port should come from config file *)
+  let host = default_host ~pref_name:"localhost" ~pref_port:8765 () in
+  let uri_list = ref [] in 
+
+  let foo = fun (name, fn) ->
+    let dy_fun = dynamic_service { 
+      dyn_handler = fn_handler fn ;
+      dyn_activation = std_activation `Std_activation_buffered;
+      dyn_uri = Some ("/" ^ name);
+      dyn_translator = (fun _ -> "");
+      dyn_accept_all_conditionals = false
+    } in
+    uri_list := List.append !uri_list [(name, dy_fun)];
+    ()
+  in
+  Hashtbl.iter foo (Hashtbl.find resource "GET");  (* what about post? *)
+  let uri_dist = uri_distributor uri_list in
+  host_distributor [host, uri_dist]
+
 
 let serve_connection ues fd =
   (* Creates the http engine for the connection [fd]. When a HTTP header is received
@@ -78,11 +90,19 @@ let serve_connection ues fd =
    *)
   printf "Connected\n";
   flush stdout;
-  let config = Nethttpd_engine.default_http_engine_config in
+
+  (* create new srv every time -- expensive *)
+  let srv = generate_srv () in
+
+  let config =
+    new Nethttpd_engine.modify_http_engine_config
+      ~config_input_flow_control:true
+      ~config_output_flow_control:true
+      Nethttpd_engine.default_http_engine_config 
+  in
+  let pconfig = new Nethttpd_engine.buffering_engine_processing_config in
   Unix.set_nonblock fd;
-  let http_engine = 
-    new Nethttpd_engine.http_engine ~on_request_header () config fd ues in
-  ()
+  ignore(Nethttpd_engine.process_connection config pconfig fd ues srv)
 ;;
 
 let rec accept ues srv_sock_acc =
