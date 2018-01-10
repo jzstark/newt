@@ -1,1 +1,1 @@
-let plus a b = a + (int_of_string) b
+let plus a b = a + (int_of_string b)
