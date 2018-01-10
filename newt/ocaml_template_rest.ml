@@ -63,15 +63,14 @@ let param_trans_output t inp =
 
 (* Toploop.mod_use_file Format.std_formatter "splus.ml" |> ignore; *)
 
-let new_fn a b = 
-  let x = unpack_int a in 
-  let y = unpack_str b in 
-  old_fn x y
-
 let param_str uri =
   let params = Array.make num_param ("", "") in 
   Array.iteri (fun i t -> 
     let p = Uri.get_query_param uri ("input" ^ (string_of_int (i + 1))) in
+    let p = match p with
+      | Some x -> x
+      | None   -> failwith "invalid input"
+    in 
     params.(i) <- (t, p); ()
   ) input_typ;
   params
@@ -81,12 +80,21 @@ let callback _conn req body =
   match Uri.path uri with
     | "/predict" ->
       let params = param_str uri in
+      (*
       let f = ref fn in
       Array.iter (fun t -> 
         let typ, str_v = t in 
         f := !f (param_trans_input typ str_v) 
-      );
-      let result = !f |> param_trans_output output_typ in 
+      ) params;
+      let result = !f |> param_trans_output output_typ in  *)
+
+
+      (* Hard-coded *)
+      let _, v1 = params.(0) in
+      let _, v2 = params.(1) in
+      let result = fn (int_of_string v1) v2 |> string_of_int in
+
+
       Server.respond_string ~status:`OK ~body:(result ^ "\n") ()
     | _ ->
       Server.respond_string ~status:`Not_found ~body:"Route not found" ()
