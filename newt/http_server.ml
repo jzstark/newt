@@ -34,24 +34,27 @@ let fn_handler fn env (cgi : Netcgi.cgi_activation) =
   cgi # output # commit_work();
 ;;
 
-(*
+let temp_fun req = 
+  let cont  = Redis_db.get_linked_container rd_conn "echo" in 
+  let pred  = Query_processor.predict cont inp "REST" in
+  pred
+
 let srv =
   host_distributor
     [ default_host ~pref_name:"localhost" ~pref_port:8765 (),
       uri_distributor [ 
         "*", (options_service());
-        "/plus", (
+        "/predict/plus", (
           dynamic_service { 
-            dyn_handler = fn_handler (fun x -> x ^ " fuck!\n") ;
+            dyn_handler = fn_handler temp_fun;
             dyn_activation = std_activation `Std_activation_buffered;
-            dyn_uri = Some "/plus";
+            dyn_uri = Some "/predict/plus";
             dyn_translator = (fun _ -> "");
             dyn_accept_all_conditionals = false
          })
       ]
     ]
 ;;
-*)
 
 (* problems of general function type? *)
 let add_endpoint res_name res_method res_fn = 
@@ -63,6 +66,7 @@ let add_endpoint res_name res_method res_fn =
 
 let delete_endpoint res_name res_method res_fn = None
 
+(*
 let generate_srv () = 
   (* ip and port should come from config file *)
   let host = default_host ~pref_name:"localhost" ~pref_port:8765 () in
@@ -82,7 +86,7 @@ let generate_srv () =
   Hashtbl.iter foo (Hashtbl.find resource "GET");  (* what about post? *)
   let uri_dist = uri_distributor uri_list in
   host_distributor [host, uri_dist]
-
+*)
 
 let serve_connection ues fd =
   (* Creates the http engine for the connection [fd]. When a HTTP header is received
@@ -92,7 +96,7 @@ let serve_connection ues fd =
   flush stdout;
 
   (* create new srv every time -- expensive *)
-  let srv = generate_srv () in
+  (* let srv = generate_srv () in *)
 
   let config =
     new Nethttpd_engine.modify_http_engine_config

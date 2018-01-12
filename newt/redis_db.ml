@@ -9,8 +9,11 @@ let link_db_num     = 3
  * Container information 
  *)
 
+let connect host port = 
+  Redis_sync.Client.connect {host=host; port=port}
+
 (* TODO: what will a proper key? a proper one is gistid+vid*)
-let add_container db_conn key name host port input_type = 
+let add_container db_conn name host port input_type = 
   select db_conn model_db_num;
 
   let mappings = [
@@ -18,7 +21,7 @@ let add_container db_conn key name host port input_type =
     ("container_name", name);
     ("input_type", input_type);
   ] in 
-  hmset db_conn key mappings
+  hmset db_conn name mappings
 
 let del_container db_conn key = 
   select db_conn model_db_num;
@@ -75,20 +78,20 @@ let get_linked_container db_conn ep_name =
  * Subscribe to changes
  *)
 
-let subscribe_to_key_changes db_num subscriber callback = 
-  let pattern = "__keyspace@" ^ (str_of_int db_num) ^ "__:*" in
+let subscribe_to_key_changes db_conn db_num subscriber callback = 
+  let pattern = "__keyspace@" ^ (string_of_int db_num) ^ "__:*" in
   let fn topic msg = 
     let splits = Str.split (Str.regexp ":") topic |> Array.of_list in 
     let key = splits.(1) in 
     callback key msg
   in
-  psubscribe pattern fn (* subscribe to a function rather than string *)
+  psubscribe db_conn [pattern] (* subscribe to a function rather than string *)
 
-let subscribe_to_container_changes =
-  subscribe_to_key_changes model_db_num
+let subscribe_to_container_changes db_conn =
+  subscribe_to_key_changes db_conn model_db_num
 
-let subscribe_to_endpoint_changes =
-  subscribe_to_key_changes endpoint_db_num
+let subscribe_to_endpoint_changes db_conn =
+  subscribe_to_key_changes db_conn endpoint_db_num
 
-let subscribe_to_link_changes =
-  subscribe_to_key_changes link_db_num
+let subscribe_to_link_changes db_conn =
+  subscribe_to_key_changes db_conn link_db_num
