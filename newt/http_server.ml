@@ -15,7 +15,7 @@ let fn_handler fn env (cgi : Netcgi.cgi_activation) =
     ~cache:`No_cache
     ~content_type:"text/html; charset=\"iso-8859-1\""
     ();
-  let input  = cgi # argument_value "data" in 
+  let input  = cgi # argument_value "input" in 
   let result = fn input in
   let data = result in 
     (*
@@ -35,8 +35,9 @@ let fn_handler fn env (cgi : Netcgi.cgi_activation) =
 ;;
 
 let temp_fun req = 
-  let cont  = Redis_db.get_linked_container rd_conn "echo" in 
-  let pred  = Query_processor.predict cont inp "REST" in
+  let rd_conn = Redis_db.connect "127.0.0.1" 6379 in 
+  let cont  = Redis_db.get_linked_container rd_conn "plus_service" in 
+  let pred  = Query_processor.predict cont req "REST" in
   pred
 
 let srv =

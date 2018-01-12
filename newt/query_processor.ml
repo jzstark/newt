@@ -8,7 +8,8 @@ let syscall cmd =
    with End_of_file -> ());
   let _ = Unix.close_process (ic, oc) in
   (Buffer.contents buf)
+;;
 
-let predict containerName input type = 
-  let output = syscall "curl 127.0.0.1:9527/predict?input=" ^ input in
+let predict containerName input t = 
+  let output = syscall ("curl -s '127.0.0.1:8888/predict?input1=" ^ input ^ "&input2=1'") in
   output

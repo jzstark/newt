@@ -14,11 +14,10 @@ open B64
 open Bitstring
 
 let port = 8888 (* Sys.getenv "PORT" *)
-let fn   = Splus.plus
+let fn   = Splus.plus 
 let input_typ = [|"int"; "string"|]
 let output_typ = "int"
 let num_param = Array.length input_typ
-
 
 (* Problem: a general type inference. 
  * funx "10" "int" --> 10; funx "10" "float" --> 10.0 
