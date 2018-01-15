@@ -2,4 +2,4 @@
 
 (executable
  ((name ocaml_template_rest)
-  (libraries (lwt cohttp.lwt cohttp-lwt-unix base64 bitstring))))
+  (libraries (owl lwt cohttp.lwt cohttp-lwt-unix))))

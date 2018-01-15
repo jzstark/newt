@@ -1,29 +1,29 @@
-FROM ocaml/opam:alpine-3.6_ocaml-4.04.2_flambda
+FROM ryanrhymes/owl
 MAINTAINER John Smith
 
-USER opam
+RUN apt-get update -y \
+    && apt-get -y install wget imagemagick
 
-RUN sudo apk update && \
-    sudo apk add m4 unzip
-RUN opam install -y lwt cohttp cohttp-lwt-unix jbuilder base64 bitstring
+RUN opam install -y lwt cohttp cohttp-lwt-unix jbuilder
 
 # automatic run depext
 
-RUN mkdir /home/opam/service
-WORKDIR /home/opam/service
+RUN mkdir /service
+WORKDIR /service
 
-COPY ocaml_template_rest.ml jbuild /home/opam/service/
+COPY ocaml_template_rest.ml jbuild /service/
 
-ENV GIST d20a8dc0ebe66412989406b6bce39787
+ENV GIST db4d6ec23d14cbe008756b2c006c33b7
 RUN wget https://gist.github.com/$GIST/download -O gist.zip \
     && unzip -o -j gist.zip -d . \
     && rm gist.zip
 
-RUN eval `opam config env` && jbuilder build ocaml_template_rest.exe
+ENV ENTRY_FILE "sqnet_example.ml" #user input
+ENV ENTRY_FUNC "infer_json"       #user input
 
-ENV ENTRY_FILE "splus.ml" #user input
-ENV ENTRY_FUNC "plus"     #user input
-CMD ["./_build/default/ocaml_template_rest.exe"]
+RUN eval `opam config env` && jbuilder build ocaml_template_rest.bc
+
+CMD ["./_build/default/ocaml_template_rest.bc"]
 
 # docker build -t matrixanger/add_service .
 # docker run --name plus_service -p 8888:8888 -d matrixanger/add_service

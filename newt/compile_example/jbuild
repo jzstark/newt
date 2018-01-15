@@ -2,4 +2,4 @@
 
 (executable
  ((name sqnet_example)
-  (libraries (owl eigen))))
+  (libraries (owl))))

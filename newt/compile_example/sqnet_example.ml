@@ -18,7 +18,9 @@ let infer img_name =
   (* use cache if possible *)
   let tmp_img = Filename.temp_file prefix ".ppm" in 
   let _ = Sys.command ("convert -resize 227x227\\! " ^ img_name ^ " " ^ tmp_img) in
-  let img_ppm = LoadImage.(read_ppm tmp_img |> extend_dim |> normalise) in 
+  let img_ppm = LoadImage.(read_ppm tmp_img |> extend_dim)
+    |> ImageUtils.preprocess
+  in
   Graph.model nn img_ppm
 
 let infer_tuples ?(top=5) img_name = 
@@ -27,10 +29,14 @@ let infer_tuples ?(top=5) img_name =
 let infer_json ?(top=5) img_name = 
   infer img_name |> Imagenet_cls.to_json ~top
 
+(*
 let _ =
   let example = Sys.argv.(1) in (*"panda_sq.ppm" in *)
   let result = infer_json example in
   print_endline result
+*)
+
+let _ = ()
 
 (* jbuilder build sqnet_example.bc *)
 (* _build/default/sqnet_example.bc "panda_sq.ppm" *)
