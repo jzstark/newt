@@ -8,3 +8,5 @@ encoded_string = subprocess.check_output(['openssl', 'base64', '-in', 'panda_sq.
 
 r = requests.get('http://172.17.0.2:9527/predict/infer_json', 
     params = {"input1":"panda_sq.ppm", "input2":encoded_string, "input3":"7"})
+
+print r.content
