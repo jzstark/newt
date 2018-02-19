@@ -1,5 +1,5 @@
 (jbuild_version 1)
 
 (executable
- ((name ocaml_template_rest)
+ ((name server)
   (libraries (owl lwt cohttp.lwt cohttp-lwt-unix))))
