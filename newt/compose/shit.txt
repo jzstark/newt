@@ -1,0 +1,5 @@
+#/usr/bin/env owl
+#zoo "aa36ee2c93fad476f4a46dc195b6fd89"
+let main p0 p1 =
+  let r0 = Squeezenet.infer  p0 p1 in
+  r0
