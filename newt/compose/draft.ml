@@ -132,10 +132,16 @@ let save service name = ()
   let gist = Owl_zoo_cmd.upload_gist tmp_dir in (* to be added *)
   gist
 
-let publish service mname =  
+let publish service mname uname cname =  
   let gist = save service mname in
   generate_server gist ^ "/" ^ conf_name;
-  generate_dockerfile gist
+  generate_dockerfile gist;
+  build_docker uname cname
+
+let build_docker ?(tag="latest") uname cname = 
+  let container = Printf.sprintf "%s/%s:%s" uname cname tag in
+  let cmd = Printf.sprintf "docker build -t %s && docker push %s" container container in
+  Sys.command cmd
 
 let generate_server conf_file = ()
 
@@ -203,14 +209,3 @@ let seq ?(name="") s1 s2 idx =
   Owl_graph.connect [|graph|] [|graph_cld|];
   {gists; types; graph}
 
-(* example *)
-
-let s1 = make_snode
-  "Squeezenet.infer"
-  "aa36ee2c93fad476f4a46dc195b6fd89"
-  [|"img"; "ndarray"|]
-
-let s2 = make_snode
-  "Squeezenet.to_json"
-  "aa36ee2c93fad476f4a46dc195b6fd89"
-  [|"ndarray"; "text"|]

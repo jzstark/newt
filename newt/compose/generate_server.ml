@@ -15,20 +15,22 @@ let filter_str (x, y) = x,
 
 let decode t = 
   match t with
-  | "int"    -> fun x -> "int_of_string " ^ x.(0) ^ " in"
-  | "float"  -> fun x -> "float_of_string" ^ x.(0) ^ " in"
-  | "string" -> fun x -> x.(0) ^ " in"
-  | "byte"   -> fun x -> Printf.sprintf "decode_base64_string %s in" x.(0) 
-  | "str_byte"-> fun x -> Printf.sprintf "decode_base64 %s %s |> ignore;" x.(0) x.(1)
-  | _        -> failwith "unsupported type"
+  | "int"     -> fun x -> "int_of_string " ^ x.(0) ^ " in"
+  | "float"   -> fun x -> "float_of_string" ^ x.(0) ^ " in"
+  | "string"  -> fun x -> x.(0) ^ " in"
+  | "ndarray" -> fun x -> Printf.sprintf "decode_base64_string %s in" x.(0) 
+  | "img"     -> fun x -> Printf.sprintf "decode_base64 %s %s |> ignore;" x.(0) x.(1)
+  | "text"    -> fun x -> x.(0) ^ " in"
+  | _         -> failwith "unsupported type"
 
 let encode t = 
   match t with
-  | "int"    -> fun x -> "string_of_int " ^ x^ " in"
-  | "float"  -> fun x -> "string_of_float " ^ x ^ " in"
-  | "string" -> fun x -> x ^ " in"
-  | "byte"   -> fun x -> Printf.sprintf "%s |> save_file_byte |> encode_base64 in" x
-  | _        -> failwith "unsupported type"
+  | "int"     -> fun x -> "string_of_int " ^ x^ " in"
+  | "float"   -> fun x -> "string_of_float " ^ x ^ " in"
+  | "string"  -> fun x -> x ^ " in"
+  | "ndarray" -> fun x -> Printf.sprintf "%s |> save_file_byte |> encode_base64 in" x
+  | "text"    -> fun x -> x ^ " in"
+  | _         -> failwith "unsupported type"
 
 let get_funame s = 
   let lst = String.split_on_char '.' s in
@@ -40,7 +42,12 @@ let divide_lst lst =
 
 let _ = 
 
-let json_lst = Yojson.Basic.from_file "service.json" 
+if ( Array.length Sys.argv < 2) then 
+  (failwith "Not enough arguments!");
+
+let json_file = Sys.argv.(1) in
+
+let json_lst = Yojson.Basic.from_file json_file
     |> Yojson.Basic.Util.to_assoc
     |> List.map filter_str 
 in
@@ -60,7 +67,7 @@ List.iteri (fun i (n, t) ->
 
   List.iter (fun typ ->
     let bar = 
-      if (typ <> "str_byte") then (
+      if (typ <> "img" && typ <> "voice") then (
         vars := !vars ^ (Printf.sprintf " v%d" !c);
         Printf.sprintf "let t%d, v%d = params.(%d) in\n" !c !c !c ^
         Printf.sprintf "let v%d = %s\n" !c (decode typ [|"v" ^ (string_of_int !c)|]) 
@@ -158,4 +165,4 @@ let () = ignore (Lwt_main.run server)
 
 in
 
-save_file "fuck.ml" output_string
+save_file "server.ml" output_string
