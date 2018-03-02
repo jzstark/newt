@@ -35,13 +35,14 @@ let text_of_string x typ =
   match typ with
   | "EN" -> EN x
   | "CN" -> CN x
+  | _    -> failwith "unsupported text type"
 
 (** zoo_types.ml ends *)
 
 type service = {
   mutable gists : string array;
   mutable types : string array;
-  mutable graph : (string * string * int) Owl_graph.node; (* "M.f" * "gist" *)
+  mutable graph : (string * string * int) Owl_graph.node; 
 }
 
 let get_gists s = s.gists 
@@ -121,27 +122,6 @@ let make_services gist =
 (* Arbitrary args seems difficult to implement...? *)
 let execute service args = ()
 
-let save service name = ()
-  let tmp_dir = Filename.get_temp_dir_name () ^ "/" ^
-    (string_of_int (Random.int 100000)) in
-  Sys.command "mkdir " ^ tmp_dir;
-
-  generate_main ~dir:tmp_dir service name;
-  generate_conf ~dir:tmp_dir service name;
-  save_file (tmp_dir ^ "readme.md");
-  let gist = Owl_zoo_cmd.upload_gist tmp_dir in (* to be added *)
-  gist
-
-let publish service mname uname cname =  
-  let gist = save service mname in
-  generate_server gist ^ "/" ^ conf_name;
-  generate_dockerfile gist;
-  build_docker uname cname
-
-let build_docker ?(tag="latest") uname cname = 
-  let container = Printf.sprintf "%s/%s:%s" uname cname tag in
-  let cmd = Printf.sprintf "docker build -t %s && docker push %s" container container in
-  Sys.command cmd
 
 let generate_server conf_file = ()
 
@@ -154,7 +134,7 @@ let generate_conf ?(dir=".") service mname =
   let types = get_types service |> join ~delim:" -> " in
   let json = `Assoc [(name, `String types)] in
 
-  let dir = if "." then Sys.getcwd () else dir in
+  let dir = if dir = "." then Sys.getcwd () else dir in
   Yojson.Basic.to_file (dir ^ "/" ^ conf_name) json
 
 
@@ -170,7 +150,7 @@ let generate_main ?(dir=".") service mname =
   for i = 0 to (p_num - 1) do 
     params.(i) <- "p" ^ (string_of_int i)
   done;
-  let p_str = combine params in
+  let p_str = join params in
 
   let body = ref "" in
   let cnt  = ref 0 in
@@ -178,7 +158,7 @@ let generate_main ?(dir=".") service mname =
   let iterfun node = 
     let name, gist, pn = Owl_graph.attr node in
     let ps = 
-      let p_str' = combine (Array.sub params !pcnt pn) in
+      let p_str' = join (Array.sub params !pcnt pn) in
       if !cnt = 0 then p_str'
       else "r" ^ (string_of_int !cnt) ^ p_str'
     in
@@ -191,8 +171,30 @@ let generate_main ?(dir=".") service mname =
   let output_string = "#/usr/bin/env owl\n" ^ !header ^
     (Printf.sprintf "let main%s =\n%s" p_str !body) in 
 
-  let dir = if "." then Sys.getcwd () else dir in
+  let dir = if dir = "." then Sys.getcwd () else dir in
   save_file output_string (dir ^ "/" ^ mname ^ ".ml")
+
+let build_docker ?(tag="latest") uname cname = 
+  let container = Printf.sprintf "%s/%s:%s" uname cname tag in
+  let cmd = Printf.sprintf "docker build -t %s && docker push %s" container container in
+  Sys.command cmd
+
+let save service name =
+  let tmp_dir = Filename.get_temp_dir_name () ^ "/" ^
+    (string_of_int (Random.int 100000)) in
+  Sys.command ("mkdir " ^ tmp_dir) |> ignore;
+
+  generate_main ~dir:tmp_dir service name;
+  generate_conf ~dir:tmp_dir service name;
+  save_file (tmp_dir ^ "readme.md") name; 
+  let gist = Owl_zoo_cmd.upload_gist tmp_dir in (* to be added *)
+  "gist" (*to update*)
+
+let publish service mname uname cname =  
+  let gist = save service mname in
+  generate_server (gist ^ "/" ^ conf_name);
+  generate_dockerfile gist;
+  build_docker uname cname
 
 
 (** compose operations *)
@@ -204,8 +206,18 @@ let seq ?(name="") s1 s2 idx =
   assert (Array.mem (out_type s1) (in_types s2));
   let gists = merge_array (get_gists s1) (get_gists s2) in
   let types = replace (get_types s1) (get_types s2) idx in
-  let graph = get_graph s1 in
-  let graph_cld = get_graph s2 in 
+  let graph = get_graph s2 in
+  let graph_cld = get_graph s1 in 
   Owl_graph.connect [|graph|] [|graph_cld|];
   {gists; types; graph}
 
+let list_nodes s = 
+  let g = get_graph s in 
+  let result = ref "" in
+  let iterfun node = 
+    let name, gist, pn = Owl_graph.attr node in
+    result := !result ^ 
+      Printf.sprintf "node: (%s, %s, %d)\n" name gist pn
+  in 
+  Owl_graph.iter_ancestors iterfun [|g|];
+  !result
