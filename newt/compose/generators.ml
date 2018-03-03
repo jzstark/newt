@@ -82,19 +82,19 @@ let generate_main ?(dir=".") service mname =
     let ps = 
       let p_str' = join (Array.sub params !pcnt pn) in
       if !cnt = 0 then p_str'
-      else "r" ^ (string_of_int !cnt) ^ p_str'
+      else "r" ^ (string_of_int (!cnt - 1)) ^ " " ^ p_str' (* not general enough *)
     in
     body := !body ^ Printf.sprintf "  let r%d = %s %s in\n" !cnt name ps;
     pcnt := !pcnt + pn; cnt := !cnt + 1
   in
-  Owl_graph.iter_ancestors iterfun [|(get_graph service)|];
+  Owl_graph.iter_descendants iterfun [|(get_graph service)|];
   body := !body ^ (Printf.sprintf "  r%d\n" (!cnt - 1));
 
   let output_string = "#/usr/bin/env owl\n" ^ !header ^
-    (Printf.sprintf "let main%s =\n%s" p_str !body) in 
+    (Printf.sprintf "let main %s =\n%s" p_str !body) in 
 
   let dir = if dir = "." then Sys.getcwd () else dir in
-  save_file output_string (dir ^ "/" ^ mname ^ ".ml")
+  save_file (dir ^ "/" ^ mname ^ ".ml") output_string
 
 
 

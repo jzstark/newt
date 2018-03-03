@@ -34,10 +34,11 @@ let merge_array a b =
   Array.append a b |> Array.to_list
   |> uniq |> Array.of_list
 
+(* replace array a's idx-th elem with array b *)
 let replace a b idx = 
   assert (idx < (Array.length b));
-  let x, y = split (Array.to_list b) idx in 
-  (x @ (Array.to_list a) @ y) |> Array.of_list
+  let x, y = split (Array.to_list a) idx in 
+  (x @ (Array.to_list b) @ y) |> Array.of_list
 
 let join ?(delim=" ") arr = 
   String.concat delim (Array.to_list arr)
@@ -49,7 +50,7 @@ let seq ?(name="") s1 s2 idx =
   (* manual type check *)
   assert (Array.mem (out_type s1) (in_types s2));
   let gists = merge_array (get_gists s1) (get_gists s2) in
-  let types = replace (get_types s1) (get_types s2) idx in
+  let types = replace (get_types s2) (get_types s1) idx in
   let graph = get_graph s2 in
   let graph_cld = get_graph s1 in 
   Owl_graph.connect [|graph|] [|graph_cld|];
@@ -64,7 +65,7 @@ let make_snode name gist types =
   {gists; types; graph}
 
 let make_services gist = 
-  Owl_zoo_cmd.download_gist gist;
+  Owl_zoo_cmd.download_gist gist; (* should use cache if possible *)
   let conf_json = Owl_zoo_cmd.load_file (gist ^ "/" ^ conf_name) in
   let nt_lst = Yojson.Basic.from_string conf_json
     |> Yojson.Basic.Util.to_assoc
@@ -85,7 +86,7 @@ let list_nodes s =
     result := !result ^ 
       Printf.sprintf "node: (%s, %s, %d)\n" name gist pn
   in 
-  Owl_graph.iter_ancestors iterfun [|g|];
+  Owl_graph.iter_descendants iterfun [|g|];
   !result
 
 let build_docker ?(tag="latest") uname cname = 
@@ -101,12 +102,17 @@ let save_service service name =
 
   generate_main ~dir:tmp_dir service name;
   generate_conf ~dir:tmp_dir service name;
-  save_file (tmp_dir ^ "readme.md") name; 
+  save_file (tmp_dir ^ "/readme.md") name; 
+  (* Exception: Sys_error "Value too large" *)
   let gist = Owl_zoo_cmd.upload_gist tmp_dir in
   gist
+
+(* service discovery *)
+let log_info service mname gist = ()
 
 let publish service mname uname cname =  
   let gist = save_service service mname in
   generate_server (gist ^ "/" ^ conf_name);
   generate_dockerfile gist;
-  build_docker uname cname
+  build_docker uname cname;
+  log_info service mname gist 
