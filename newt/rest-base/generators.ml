@@ -278,7 +278,7 @@ WORKDIR /service
 
 COPY server.ml jbuild /service/
 
-ENV GIST" ^ gist ^ "
+ENV GIST " ^ gist ^ "
 RUN owl -run " ^ gist ^ " \\
     && find ~/.owl/zoo -iname '*' -exec cp \\{\\} . \\; \\
     && find . -name \"*.ml\" -exec sed -i '/^#/d' \\{\\} \\;
