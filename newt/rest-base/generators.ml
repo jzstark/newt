@@ -36,8 +36,10 @@ let decode t =
   | "float"   -> fun x -> "float_of_string" ^ x.(0) ^ " in"
   | "string"  -> fun x -> x.(0) ^ " in"
   | "ndarray" -> fun x -> Printf.sprintf "decode_base64_string %s in" x.(0) 
-  | "img"     -> fun x -> Printf.sprintf "decode_base64 %s %s |> ignore;" x.(0) x.(1)
-  | "text"    -> fun x -> x.(0) ^ " in"
+  | "img"     -> fun x -> Printf.sprintf 
+    "decode_base64 %s %s |> ignore;\nlet %s = img_of_string %s \"\" in" 
+    x.(0) x.(1) x.(0) x.(0)
+  | "text"    -> fun x -> x.(0) ^ " |> text_of_string in"
   | _         -> failwith "unsupported type"
 
 let encode t = 
@@ -46,7 +48,7 @@ let encode t =
   | "float"   -> fun x -> "string_of_float " ^ x ^ " in"
   | "string"  -> fun x -> x ^ " in"
   | "ndarray" -> fun x -> Printf.sprintf "%s |> save_file_byte |> encode_base64 in" x
-  | "text"    -> fun x -> x ^ " in"
+  | "text"    -> fun x -> x ^ "|> string_of_text in"
   | _         -> failwith "unsupported type"
 
 
@@ -67,30 +69,63 @@ let generate_main ?(dir=".") service mname =
     header := !header ^ (Printf.sprintf "#zoo \"%s\"\n" gist)
   ) (get_gists service);
 
-  let p_num = Array.length (get_types service) in
+  let p_num = Array.length (in_types service) in
   let params = Array.make p_num "" in
   for i = 0 to (p_num - 1) do 
     params.(i) <- "p" ^ (string_of_int i)
   done;
   let p_str = join params in
 
-  let body = ref "" in
+  (* get number of nodes *)
   let cnt  = ref 0 in
+  let iter_count _ = 
+    cnt := !cnt + 1
+  in
+  cnt := !cnt - 1;
+  Owl_graph.iter_descendants iter_count [|(get_graph service)|];
+
+  (* build body reversely *)
+  let body = ref (Printf.sprintf "  r%d\n" !cnt) in
+  let pcnt = ref p_num in
+  let iterfun node = 
+    let name, gist, pn = Owl_graph.attr node in
+    let pn = pn - 1 in 
+    let ps = 
+      if !cnt = 0 then 
+        (pcnt := !pcnt - (pn - 1) - 1; 
+        join (Array.sub params !pcnt pn))
+      else 
+        (pcnt := !pcnt - (pn - 1);
+        let p_str' = join (Array.sub params !pcnt (pn - 1)) in
+        "r" ^ (string_of_int (!cnt - 1)) ^ " " ^ p_str') (* not general enough *)
+    in
+    body := (Printf.sprintf "  let r%d = %s %s in\n" !cnt name ps) ^ !body;
+    cnt := !cnt - 1
+  in
+  Owl_graph.iter_descendants iterfun [|(get_graph service)|];
+
+  (*
+  let body = ref "" in
+  let cnt  = ref "" in
   let pcnt = ref 0 in
   let iterfun node = 
     let name, gist, pn = Owl_graph.attr node in
     let ps = 
-      let p_str' = join (Array.sub params !pcnt pn) in
-      if !cnt = 0 then p_str'
-      else "r" ^ (string_of_int (!cnt - 1)) ^ " " ^ p_str' (* not general enough *)
+      if !cnt = 0 then 
+        join (Array.sub params !pcnt pn)
+      else 
+        let p_str' = join (Array.sub params !pcnt (pn - 1)) in
+        "r" ^ (string_of_int (!cnt - 1)) ^ " " ^ p_str' (* not general enough *)
     in
     body := !body ^ Printf.sprintf "  let r%d = %s %s in\n" !cnt name ps;
     pcnt := !pcnt + pn; cnt := !cnt + 1
   in
+
   Owl_graph.iter_descendants iterfun [|(get_graph service)|];
   body := !body ^ (Printf.sprintf "  r%d\n" (!cnt - 1));
+  *)
 
-  let output_string = "#/usr/bin/env owl\n" ^ !header ^
+  let output_string = "#!/usr/bin/env owl\n" ^ !header ^
     (Printf.sprintf "let main %s =\n%s" p_str !body) in 
 
   let dir = if dir = "." then Sys.getcwd () else dir in
@@ -98,12 +133,7 @@ let generate_main ?(dir=".") service mname =
 
 
 
-let generate_server conf_file = 
-
-if ( Array.length Sys.argv < 2) then 
-  (failwith "Not enough arguments!");
-
-let json_file = Sys.argv.(1) in
+let generate_server json_file = 
 
 let json_lst = Yojson.Basic.from_file json_file
     |> Yojson.Basic.Util.to_assoc
@@ -124,7 +154,7 @@ List.iteri (fun i (n, t) ->
   let th, tl = divide_lst t in 
 
   List.iter (fun typ ->
-    let bar = 
+    let p_str = 
       if (typ <> "img" && typ <> "voice") then (
         vars := !vars ^ (Printf.sprintf " v%d" !c);
         Printf.sprintf "let t%d, v%d = params.(%d) in\n" !c !c !c ^
@@ -138,7 +168,7 @@ List.iteri (fun i (n, t) ->
             [|"v" ^ (string_of_int (!c - 1) ); "v" ^ (string_of_int !c)|])
       ) in
     c := !c + 1;
-    func_str := !func_str ^ bar
+    func_str := !func_str ^ p_str
   ) th;
 
   let header = "| \"/predict/" ^ (get_funame n) ^ "\" -> \n" ^
@@ -147,13 +177,14 @@ List.iteri (fun i (n, t) ->
     " in\nlet result = " ^ (encode tl "result") ^
     "\nServer.respond_string ~status:`OK ~body:(result ^ \"\") ()\n\n"
   in
-  branch_str := !branch_str ^ header^ !func_str ^ foot;
+  branch_str := !branch_str ^ header ^ !func_str ^ foot;
 ) json_lst;
 
 let output_string = 
 "open Lwt
 open Cohttp
 open Cohttp_lwt_unix
+open Owl_zoo_types
 
 let port = 9527
 " 
@@ -245,22 +276,27 @@ RUN apt-get update -y \\
 RUN mkdir /service
 WORKDIR /service
 
-COPY generate_server.ml jbuild /service/
+COPY server.ml jbuild /service/
 
-ENV GIST $1
-RUN owl -run " ^ gist ^ "\\
+ENV GIST" ^ gist ^ "
+RUN owl -run " ^ gist ^ " \\
     && find ~/.owl/zoo -iname '*' -exec cp \\{\\} . \\; \\
     && find . -name \"*.ml\" -exec sed -i '/^#/d' \\{\\} \\;
-
-RUN ocamlfind ocamlopt -o generate_server \\
-    -linkpkg -package yojson,str generate_server.ml \\
-    && rm generate_server.cm* generate_server.o \\
-    && ./generate_server
 
 RUN eval `opam config env` && jbuilder build server.bc
 
 ENTRYPOINT [\"./_build/default/server.bc\"]
 "
 in
-
 save_file "Dockerfile" output_str
+
+let generate_jbuild () = 
+  let output_str = "
+(jbuild_version 1)
+
+(executable
+ ((name server)
+  (libraries (owl lwt cohttp.lwt cohttp-lwt-unix))))
+"
+  in 
+  save_file "jbuild" output_str

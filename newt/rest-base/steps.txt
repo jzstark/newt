@@ -1,5 +1,0 @@
-1. Geneerate Dockerfile: `bash generate_dockerfile.sh c424e1d1454d58cfb9b0284ba1925a48`
-2. Build Docker container: `docker build -t foo/bar .`
-3. (optional) Upload container to dockerhub: docker push foo/bar
-4. Start container: docker run --name service -p 9527:9527 -d foo/bar
-5. Send request to service: python request_example.py

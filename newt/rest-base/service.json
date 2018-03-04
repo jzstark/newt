@@ -1,2 +1,0 @@
-{ "Squeezenet.infer": "img -> Dense.Matrix.S.arr", 
-  "Squeezenet.to_json": "int -> Dense.Matrix.S.mat -> string"}

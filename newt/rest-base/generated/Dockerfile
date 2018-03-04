@@ -1,3 +1,4 @@
+
 FROM ryanrhymes/owl
 MAINTAINER John Smith
 
@@ -9,17 +10,11 @@ RUN apt-get update -y \
 RUN mkdir /service
 WORKDIR /service
 
-COPY generate_server.ml jbuild /service/
+COPY server.ml jbuild /service/
 
-ENV GIST c424e1d1454d58cfb9b0284ba1925a48
-RUN owl -run $GIST \
+RUN owl -run df8a0359cb9dd6528643b456ff7d7f3e \
     && find ~/.owl/zoo -iname '*' -exec cp \{\} . \; \
-    && find . -name "*.ml" -exec sed -i '/^#/d' \{\} \; 
-
-RUN ocamlfind ocamlopt -o generate_server \
-    -linkpkg -package yojson generate_server.ml \
-    && rm generate_server.cm* generate_server.o \
-    && ./generate_server
+    && find . -name "*.ml" -exec sed -i '/^#/d' \{\} \;
 
 RUN eval `opam config env` && jbuilder build server.bc
 

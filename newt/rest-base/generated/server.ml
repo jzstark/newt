@@ -1,11 +1,10 @@
-
 open Lwt
 open Cohttp
 open Cohttp_lwt_unix
+open Owl_zoo_types
 
 let port = 9527
-let fn0 = Squeezenet.infer
-let fn1 = Squeezenet.to_json
+let fn0 = Foobar.main
 
 let save_file file string =
   let channel = open_out file in
@@ -58,26 +57,17 @@ let param_str uri n =
 let callback _conn req body =
   let uri = Request.uri req in
   match Uri.path uri with
-  | "/predict/infer" -> 
-    let params = param_str uri 2 in
-    let t0, v0 = params.(0) in
-    let t1, v1 = params.(1) in
-    decode_base64 v0 v1 |> ignore;
-    let result = Squeezenet.infer v0 in
-    let result = result |> save_file_byte |> encode_base64 in
-    Server.respond_string ~status:`OK ~body:(result ^ "") ()
+| "/predict/main" -> 
+let params = param_str uri 2 in
+let t0, v0 = params.(0) in
+let t1, v1 = params.(1) in
+decode_base64 v0 v1 |> ignore;
+let v0 = img_of_string v0 "" in
+let result = Foobar.main v0 in
+let result = result|> string_of_text in
+Server.respond_string ~status:`OK ~body:(result ^ "") ()
 
-  | "/predict/to_json" -> 
-    let params = param_str uri 2 in
-    let t0, v0 = params.(0) in
-    let v0 = int_of_string v0 in
-    let t1, v1 = params.(1) in
-    let v1 = decode_base64_string v1 in
-    let result = Squeezenet.to_json ~top:v0 v1 in
-    let result = result in
-    Server.respond_string ~status:`OK ~body:(result ^ "") ()
-
-  | _ ->
+| _ ->
     Server.respond_string ~status:`Not_found ~body:"Route not found" ()
 
 let server =

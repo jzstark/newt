@@ -1,2 +1,0 @@
-{"Squeezenet.infer": "img -> ndarray", 
- "Squeezenet.to_json": "ndarray -> text"}
