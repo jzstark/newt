@@ -1,5 +1,5 @@
 
-FROM ryanrhymes/owl
+FROM matrixanger/zoo-base
 MAINTAINER John Smith
 
 RUN opam install -y lwt cohttp cohttp-lwt-unix yojson jbuilder

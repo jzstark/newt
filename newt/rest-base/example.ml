@@ -5,7 +5,7 @@ let s1 = ss.(0);; (*img -> ndarray *)
 let s2 = ss.(1);; (*ndarray -> text *)
 let s3 = seq s1 s2 0;; (* compose *)
 publish_s s3 "foo" "matrixanger/foo";; (* df8a0359cb9dd6528643b456ff7d7f3e *)
-deploy "matrixanger/foo" "138.68.155.178" "stark";;
+deploy "matrixanger/foo" "10.20.30.40" "stark";;
 
 (* example 2 *)
 

@@ -265,7 +265,8 @@ if ( Array.length Sys.argv < 2) then
 let gid = Sys.argv.(1) in
 *)
 let output_str = "
-FROM ryanrhymes/owl
+#FROM ryanrhymes/owl
+FROM matrixanger/zoo-base
 MAINTAINER John Smith
 
 RUN opam install -y lwt cohttp cohttp-lwt-unix yojson jbuilder
@@ -296,7 +297,7 @@ let generate_jbuild () =
 
 (executable
  ((name server)
-  (libraries (owl lwt cohttp.lwt cohttp-lwt-unix))))
+  (libraries (owl owl_zoo lwt cohttp.lwt cohttp-lwt-unix))))
 "
   in 
   save_file "jbuild" output_str
