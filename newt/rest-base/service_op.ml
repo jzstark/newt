@@ -89,7 +89,7 @@ let sd_find_instances gist = ()
 (* add/delete a instance to gist *)
 let sd_add_instance gist = ()
 
-let add_remove_instance gist = ()
+let sd_remove_instance gist = ()
 
 
 (** Core service functions *)
